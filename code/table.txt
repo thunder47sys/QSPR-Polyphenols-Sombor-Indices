@@ -1,0 +1,44 @@
+# 1. Install required libraries
+!pip install pandas statsmodels -q
+
+import pandas as pd
+import io
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+from google.colab import files
+import warnings
+warnings.filterwarnings('ignore')
+
+# 2. Upload your dataset
+print("Please upload your 'dataset.csv' file:")
+uploaded = files.upload()
+filename = list(uploaded.keys())[0]
+df = pd.read_csv(io.BytesIO(uploaded[filename]), encoding='latin-1')
+
+df.columns = df.columns.str.strip()
+
+# 3. Define the original 7 features
+features = ['SO(G)', 'SO3', 'SO4', 'SO5', 'SO6', 'ESO(G)', 'MESO(G)']
+X = df[features].dropna() # Drop any blank rows just in case
+
+# 4. Calculate Descriptive Statistics
+print("\n--- Calculating Descriptive Statistics ---")
+desc_stats = df.describe().round(4)
+desc_stats.to_csv("table1_descriptive_statistics.csv")
+
+# 5. Calculate Pearson Correlation Matrix
+print("--- Calculating Correlation Matrix ---")
+corr_matrix = X.corr().round(4)
+corr_matrix.to_csv("table2_correlation_matrix.csv")
+
+# 6. Calculate VIF Table
+print("--- Calculating Variance Inflation Factor (VIF) ---")
+vif_data = pd.DataFrame()
+vif_data["Index"] = features
+vif_data["VIF Score"] = [variance_inflation_factor(X.values, i) for i in range(len(features))]
+vif_data = vif_data.sort_values(by="VIF Score", ascending=False).round(4)
+vif_data.to_csv("table3_vif_scores.csv")
+
+print("\nSuccess! Downloading all three tables to your computer now...")
+files.download("table1_descriptive_statistics.csv")
+files.download("table2_correlation_matrix.csv")
+files.download("table3_vif_scores.csv")

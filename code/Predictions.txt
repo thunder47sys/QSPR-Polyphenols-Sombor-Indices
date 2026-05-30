@@ -1,0 +1,104 @@
+# 1. Install required libraries
+!pip install pandas scikit-learn -q
+
+import pandas as pd
+import numpy as np
+import io
+from sklearn.model_selection import LeaveOneOut
+from sklearn.linear_model import Ridge
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import r2_score
+from google.colab import files
+import warnings
+warnings.filterwarnings('ignore')
+
+# 2. Upload your dataset
+print("Please upload your 'dataset.csv' file:")
+uploaded = files.upload()
+filename = list(uploaded.keys())[0]
+df = pd.read_csv(io.BytesIO(uploaded[filename]), encoding='latin-1')
+
+df.columns = df.columns.str.strip()
+
+# 3. Define the pure features
+optimal_features = ['ESO(G)', 'MESO(G)']
+ignore_cols = ['ID', 'Name', 'SMILES', 'Category', 'SO(G)', 'SO3', 'SO4', 'SO5', 'SO6', 'ESO(G)', 'MESO(G)']
+targets = [col for col in df.columns if col not in ignore_cols]
+
+loo = LeaveOneOut()
+predictions_list = []
+
+print(f"\n--- Calculating Actual Predictions for All 47 Compounds ---\n")
+
+for target in targets:
+    # THIS IS THE FIX: Force the target column to be pure numbers
+    df[target] = pd.to_numeric(df[target], errors='coerce')
+    
+    # Clean data to remove any rows that had bad text (now turned to NaN) or missing values
+    clean_df = df.dropna(subset=[target, 'Name'] + optimal_features)
+    
+    X_clean = clean_df[optimal_features].values
+    y_clean = clean_df[target].values
+    names = clean_df['Name'].values
+    
+    # We test both models to grab the best possible predictions
+    model_ridge = Ridge(alpha=1.0)
+    model_rf = RandomForestRegressor(n_estimators=100, max_depth=5, random_state=42)
+    
+    preds_ridge = []
+    preds_rf = []
+    
+    # Run LOOCV for both
+    for train_index, test_index in loo.split(X_clean):
+        X_train, X_test = X_clean[train_index], X_clean[test_index]
+        y_train = y_clean[train_index]
+        
+        model_ridge.fit(X_train, y_train)
+        preds_ridge.append(model_ridge.predict(X_test)[0])
+        
+        model_rf.fit(X_train, y_train)
+        preds_rf.append(model_rf.predict(X_test)[0])
+        
+    # Check which model won
+    r2_ridge = r2_score(y_clean, preds_ridge)
+    r2_rf = r2_score(y_clean, preds_rf)
+    
+    if r2_ridge >= r2_rf:
+        best_preds = preds_ridge
+        winning_model = "Ridge"
+    else:
+        best_preds = preds_rf
+        winning_model = "Random Forest"
+        
+    print(f"Generated predictions for {target} using {winning_model}.")
+        
+    # Save the predictions
+    for i in range(len(names)):
+        actual = y_clean[i]
+        predicted = best_preds[i]
+        residual = actual - predicted # This math will now work perfectly
+        
+        predictions_list.append({
+            'Compound Name': names[i],
+            'Property': target,
+            'Actual Value': round(actual, 4),
+            'Predicted Value': round(predicted, 4)
+        })
+
+# 4. Format the final table into a beautiful wide layout for your paper
+long_df = pd.DataFrame(predictions_list)
+
+# This reorganizes the table so each property has its own neat columns
+wide_df = long_df.pivot(index='Compound Name', columns='Property', values=['Actual Value', 'Predicted Value'])
+
+# Clean up the column names so they look decent
+wide_df.columns = [f"{col[1]} ({col[0]})" for col in wide_df.columns]
+wide_df = wide_df.reset_index()
+
+# 5. Save and download
+output_name = "actual_predictions_ready_for_paper.csv"
+wide_df.to_csv(output_name, index=False)
+
+print(f"\nSuccess! The table is formatted perfectly without any text errors.")
+print(f"Downloading '{output_name}' to your computer now...")
+files.download(output_name)

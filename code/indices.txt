@@ -1,0 +1,130 @@
+import math
+import pandas as pd
+from google.colab import files
+
+def calculate_sombor_indices(edge_data):
+    """
+    edge_data: list of tuples (d_u, d_v, count)
+    Implements the seven Sombor indices exactly as provided.
+    """
+    SO = 0
+    SO3 = 0
+    SO4 = 0
+    SO5 = 0
+    SO6 = 0
+    ESO = 0
+
+    for du, dv, count in edge_data:
+        term = math.sqrt(du**2 + dv**2)
+
+        # (1) Standard Sombor
+        SO += count * term
+
+        # (2) SO3
+        SO3 += count * (math.sqrt(2) * math.pi * ((du**2 + dv**2) / (du + dv)))
+
+        # (3) SO4
+        SO4 += count * ((math.pi / 2) * (((du**2 + dv**2) / (du + dv)) ** 2))
+
+        # (4) SO5 (absolute value to ensure non-negative)
+        denom = (math.sqrt(2) + 2 * term)
+        SO5 += count * (2 * math.pi * (abs(du**2 - dv**2) / denom))
+
+        # (5) SO6 (same rule, use absolute value)
+        SO6 += count * (math.pi * ((abs(du**2 - dv**2) / denom) ** 2))
+
+        # (6) ESO(G)
+        ESO += count * ((du + dv) * term)
+
+    # (7) MESO(G)
+    MESO = 1 / ESO if ESO != 0 else 0
+
+    return SO, SO3, SO4, SO5, SO6, ESO, MESO
+
+# === EDGE DATA ===
+compounds = {
+    "Gallic acid": [(2, 3, 4), (3, 3, 3), (1, 3, 5)],
+    "Morin": [(2, 2, 1), (2, 3, 10), (3, 3, 7), (1, 3, 6)],
+    "Apigenin": [(2, 2, 2), (2, 3, 12), (3, 3, 4), (1, 3, 4)],
+    "Myricetin": [(2, 3, 10), (3, 3, 8), (1, 3, 7)],
+    "Kaempferol": [(2, 2, 2), (2, 3, 10), (3, 3, 6), (1, 3, 5)],
+    "Avenanthramide-C": [(2, 2, 3), (2, 3, 12), (3, 3, 3), (1, 3, 6)],
+    "Rosmarinic acid": [(2, 2, 3), (2, 3, 14), (3, 3, 3), (1, 3, 7)],
+    "Oleocanthal": [(1, 2, 3), (2, 3, 11), (3, 3, 1), (2, 2, 5), (1, 3, 2)],
+    "Epigallocatechin-3-gallate": [(2, 3, 18), (3, 3, 9), (1, 3, 9)],
+    "Curcumin": [(1, 2, 2), (2, 3, 16), (3, 3, 2), (2, 2, 4), (1, 3, 4)],
+    "Resveratrol": [(2, 2, 3), (2, 3, 12), (1, 3, 3)],
+    "Fisetin": [(2, 2, 2), (2, 3, 10), (3, 3, 6), (1, 3, 5)],
+    "Quercetin": [(2, 2, 1), (2, 3, 10), (3, 3, 7), (1, 3, 6)],
+    "Caffeic Acid": [(2, 2, 2), (2, 3, 6), (3, 3, 1), (1, 3, 4)],
+    "Secoisolariciresinol": [(1, 2, 4), (2, 3, 16), (3, 3, 3), (2, 2, 2), (1, 3, 2)],
+    "Butein": [(2, 2, 3), (2, 3, 10), (3, 3, 3), (1, 3, 5)],
+    "Esculetin": [(2, 2, 1), (2, 3, 8), (1, 3, 3), (3, 3, 2)],
+    "Thymol": [(1, 3, 4), (2, 3, 4), (3, 3, 2), (2, 2, 1)],
+    "Juglone": [(2, 2, 3), (2, 3, 4), (3, 3, 4), (1, 3, 3)],
+    "Coumestrol": [(2, 2, 2), (2, 3, 12), (3, 3, 6), (1, 3, 3)],
+    "Ellagic Acid": [(2, 3, 8), (3, 3, 11), (1, 3, 6)],
+    "Luteolin": [(2, 2, 1), (2, 3, 12), (3, 3, 5), (1, 3, 5)],
+    "Scopoletin": [(1, 2, 1), (2, 3, 9), (3, 3, 2), (2, 2, 1), (1, 3, 2)],
+    "Ferulic Acid": [(1, 2, 1), (2, 3, 7), (3, 3, 1), (2, 2, 2), (1, 3, 3)],
+    "Chrysin": [(2, 2, 4), (2, 3, 10), (3, 3, 4), (1, 3, 3)],
+    "Baicalein": [(2, 2, 4), (2, 3, 8), (3, 3, 6), (1, 3, 4)],
+    "Galangin": [(2, 2, 4), (2, 3, 8), (3, 3, 6), (1, 3, 4)],
+    "Acacetin": [(1, 2, 1), (2, 3, 13), (2, 2, 2), (3, 3, 4), (1, 3, 3)],
+    "Hesperetin": [(1, 2, 1), (2, 3, 13), (3, 3, 5), (2, 2, 1), (1, 3, 4)],
+    "Naringenin": [(2, 3, 12), (3, 3, 4), (1, 3, 4), (2, 2, 2)],
+    "Taxifolin": [(2, 2, 1), (2, 3, 10), (3, 3, 7), (1, 3, 6)],
+    "Genistein": [(2, 2, 3), (2, 3, 10), (3, 3, 5), (1, 3, 4)],
+    "Daidzein": [(2, 2, 4), (2, 3, 10), (3, 3, 4), (1, 3, 3)],
+    "p-Coumaric Acid": [(2, 2, 3), (2, 3, 6), (1, 3, 3)],
+    "Sinapic Acid": [(1, 2, 2), (2, 3, 8), (3, 3, 2), (1, 3, 3), (2, 2, 1)],
+    "Protocatechuic Acid": [(2, 2, 1), (2, 3, 4), (3, 3, 2), (1, 3, 4)],
+    "Syringic Acid": [(1, 2, 2), (2, 3, 6), (3, 3, 3), (1, 3, 3)],
+    "Vanillic Acid": [(1, 2, 1), (2, 3, 5), (3, 3, 2), (2, 2, 1), (1, 3, 3)],
+    "Isoferulic Acid": [(1, 2, 1), (2, 3, 7), (3, 3, 1), (2, 2, 2), (1, 3, 3)],
+    "Umbelliferone": [(2, 2, 2), (2, 3, 8), (3, 3, 1), (1, 3, 2)],
+    "Piceatannol": [(2, 2, 2), (2, 3, 12), (3, 3, 1), (1, 3, 4)],
+    "Pterostilbene": [(1, 2, 2), (2, 3, 14), (2, 2, 3), (1, 3, 1)],
+    "Epicatechin": [(2, 3, 12), (3, 3, 5), (1, 3, 5), (2, 2, 1)],
+    "Epicatechin gallate": [(2, 3, 18), (3, 3, 8), (1, 3, 8), (2, 2, 1)],
+    "Eriodictyol": [(2, 3, 12), (3, 3, 5), (1, 3, 5), (2, 2, 1)],
+    "Rutin": [(1, 3, 12), (3, 3, 15), (2, 3, 18), (2, 2, 2)],
+    "Chlorogenic Acid": [(2, 3, 10), (3, 3, 3), (2, 4, 2), (3, 4, 1), (1, 3, 7), (1, 4, 1), (2, 2, 2)],
+}
+
+# === OUTPUT AND FILE SAVING ===
+results_list = []
+
+print("Calculating indices...\n")
+
+for name, data in compounds.items():
+    SO, SO3, SO4, SO5, SO6, ESO, MESO = calculate_sombor_indices(data)
+    
+    # Store each result in a dictionary
+    results_list.append({
+        'Name': name,
+        'SO(G)': round(SO, 4),
+        'SO3': round(SO3, 4),
+        'SO4': round(SO4, 4),
+        'SO5': round(SO5, 4),
+        'SO6': round(SO6, 4),
+        'ESO(G)': round(ESO, 4),
+        'MESO(G)': round(MESO, 6)
+    })
+
+# Convert the list to a pandas DataFrame
+df_results = pd.DataFrame(results_list)
+
+# Display the first few rows to confirm it worked
+print(df_results.head(10).to_string(index=False))
+print("\n... and so on for all 47 compounds.\n")
+
+# Save the DataFrame to a CSV file
+output_filename = "calculated_sombor_indices.csv"
+df_results.to_csv(output_filename, index=False)
+
+print(f"Success! All calculations are complete and saved to '{output_filename}'.")
+print("You can download the file from the Colab file explorer on the left.")
+
+# Automatically download the file to your computer
+files.download(output_filename)

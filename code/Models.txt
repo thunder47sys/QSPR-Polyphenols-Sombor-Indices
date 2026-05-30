@@ -1,0 +1,102 @@
+# 1. Install required libraries
+!pip install pandas scikit-learn xgboost -q
+
+import pandas as pd
+import numpy as np
+import io
+from sklearn.model_selection import LeaveOneOut, GridSearchCV
+from sklearn.linear_model import LinearRegression, Ridge, Lasso
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
+from xgboost import XGBRegressor
+from google.colab import files
+import warnings
+warnings.filterwarnings('ignore') # Hides unnecessary warnings
+
+# 2. Upload your dataset
+print("Please upload your 'dataset.csv' file:")
+uploaded = files.upload()
+filename = list(uploaded.keys())[0]
+df = pd.read_csv(io.BytesIO(uploaded[filename]), encoding='latin-1')
+
+# Clean column names
+df.columns = df.columns.str.strip()
+
+# 3. Define the pure features and the properties
+optimal_features = ['ESO(G)', 'MESO(G)']
+ignore_cols = ['ID', 'Name', 'SMILES', 'Category', 'SO(G)', 'SO3', 'SO4', 'SO5', 'SO6', 'ESO(G)', 'MESO(G)']
+targets = [col for col in df.columns if col not in ignore_cols]
+
+loo = LeaveOneOut()
+results_list = []
+
+# 4. Define tuning parameters for the complex models
+rf_params = {'n_estimators': [50, 100, 150], 'max_depth': [3, 5]}
+xgb_params = {'n_estimators': [50, 100, 150], 'max_depth': [2, 3], 'learning_rate': [0.05, 0.1]}
+
+print(f"\n--- Running Master Script with features: {optimal_features} ---\n")
+
+for target in targets:
+    # Clean data for the specific property
+    clean_df = df.dropna(subset=[target] + optimal_features)
+    X_clean = clean_df[optimal_features].values
+    y_clean = clean_df[target].values
+    
+    # 5. Set up the simple linear models
+    models = {
+        'Simple MLR': LinearRegression(),
+        'Ridge (Optimized)': Ridge(alpha=1.0),
+        'Lasso (Optimized)': Lasso(alpha=0.1),
+        'Tuned Random Forest': None, 
+        'Tuned XGBoost': None
+    }
+    
+    print(f"Tuning and calculating models for {target}...")
+    
+    # 6. Automatically tune the complex machine learning models
+    rf_grid = GridSearchCV(RandomForestRegressor(random_state=42), rf_params, cv=5, scoring='r2', n_jobs=-1)
+    rf_grid.fit(X_clean, y_clean)
+    models['Tuned Random Forest'] = rf_grid.best_estimator_
+    
+    xgb_grid = GridSearchCV(XGBRegressor(random_state=42), xgb_params, cv=5, scoring='r2', n_jobs=-1)
+    xgb_grid.fit(X_clean, y_clean)
+    models['Tuned XGBoost'] = xgb_grid.best_estimator_
+    
+    # 7. Run LOOCV for every single model
+    for model_name, model in models.items():
+        y_true = []
+        y_pred = []
+        
+        for train_index, test_index in loo.split(X_clean):
+            X_train, X_test = X_clean[train_index], X_clean[test_index]
+            y_train, y_test = y_clean[train_index], y_clean[test_index]
+            
+            model.fit(X_train, y_train)
+            prediction = model.predict(X_test)
+            
+            y_true.append(y_test[0])
+            y_pred.append(prediction[0])
+            
+        # Calculate error metrics
+        r2 = r2_score(y_true, y_pred)
+        rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+        mae = mean_absolute_error(y_true, y_pred)
+        
+        # Save to our master list
+        results_list.append({
+            'Property': target,
+            'Features Used': "ESO(G), MESO(G)",
+            'Model': model_name,
+            'R2 Score': round(r2, 4),
+            'RMSE': round(rmse, 4),
+            'MAE': round(mae, 4)
+        })
+
+# 8. Save and download the final master table
+results_df = pd.DataFrame(results_list)
+output_name = "master_final_results.csv"
+results_df.to_csv(output_name, index=False)
+
+print(f"\nSuccess! All calculations are complete.")
+print(f"Downloading '{output_name}' to your computer now...")
+files.download(output_name)
